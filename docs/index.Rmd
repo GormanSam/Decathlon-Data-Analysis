@@ -1,0 +1,77 @@
+---
+title: "Linear Regression Analysis of Sprint Performance"
+author: "Sam Gorman"
+date: '2022-10-23'
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Collecting Data
+
+The Power of 10 website is a database for all athletics events ran at a sufficiently high standard. It contains rankings which can be viewed per event. We begin our analysis by first scraping this website for the data we will use. For this we use the package rvest. We also use tidyverse for ease of processing data. The packages are installed as follows;
+
+```{r, message=FALSE, warning=FALSE}
+library(rvest)
+library(tidyverse)
+```
+
+Then we proceed to collect data from the rankings in 2001;
+
+```{r, message=FALSE, warning=FALSE}
+data100m = read_html("https://www.thepowerof10.info/rankings/rankinglist.aspx?event=100&agegroup=ALL&sex=M&year=2021") |> 
+            html_element(xpath='//*[@id="cphBody_lblCachedRankingList"]/table') |> 
+            html_table() |> 
+            filter(is.na(as.numeric(X1))==FALSE) |> 
+            select(c("X2","X7","X11")) |> 
+            rename("T100m"="X2","Name"="X7","Club"="X11")
+```
+
+Here we have a dataframe containing athletes names, clubs and 100m performance for the 2021 season.
+
+```{r, echo=FALSE}
+head(data100m)
+```
+
+And so we do the same with the 200m performances;
+
+```{r, message=FALSE, warning=FALSE}
+data200m = read_html("https://www.thepowerof10.info/rankings/rankinglist.aspx?event=200&agegroup=ALL&sex=M&year=2021") |> 
+            html_element(xpath='//*[@id="cphBody_lblCachedRankingList"]/table') |> 
+            html_table() |> 
+            filter(is.na(as.numeric(X1))==FALSE) |> 
+            select(c("X2","X7","X11")) |> 
+            rename("T200m"="X2","Name"="X7","Club"="X11")
+```
+
+And we join the two datasets, ensuring that the times are numeric variables.
+
+```{r message=FALSE, warning = FALSE}
+datacombined =  full_join(data100m,data200m) |> 
+                na.omit() |> 
+                mutate(T100m = as.numeric(T100m)) |> 
+                mutate(T200m = as.numeric(T200m))
+```
+
+## Analysis of Data
+
+So then we can see the data:
+
+```{r}
+head(datacombined)
+plot(datacombined$T100m,datacombined$T200m)
+```
+
+We can see from the plot shows that it would be reasonable to assume a linear relationship. We can use a linear regression to see this relationship;
+
+```{r}
+model = lm(T200m ~ T100m, data=datacombined)
+summary(model)
+qqnorm(resid(model))
+```
+
+So we can predict a 200m time using the formula; $$ T200m = 3.169 + T100m \cdot 1.740 $$
