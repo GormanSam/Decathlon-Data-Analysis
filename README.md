@@ -5,3 +5,5 @@ See https://gormansam.github.io/Decathlon-Data-Analysis/ for the markdown file w
 
 I also have also developed a shiny app for users to plot their own performances on power of 10.
 A live version of my shiny app for plotting performances can be found at https://samgorman.shinyapps.io/ukathleticstools/ however I would strongly recommend downloading the file and running it yourself, as the website runs slowly.
+
+I have also included a little decathlon points calculator project which I wrote to learn some html basics.
