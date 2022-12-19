@@ -1,0 +1,382 @@
+---
+title: "Breaking Down UK Decathlon Performances"
+author: "Sam Gorman"
+date: '2022-12-15'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## The Decathlon
+
+Decathlon has been an olympic event since 1912 with its roots tracing back to the acient greek pentathlon. The event takes place over two days with 5 events each day. The order of events is; 100m, Long Jump, Shotput, High Jump, 400m, 110m Hurdles, Discus, Pole Vault, Javelin and 1500. It's scored by the following formula;
+$$
+Points = A \cdot |B-P|^C
+$$
+Where $P$ is the performance (in centi-meters for jumps, meters for throws and seconds for track events) and $A$, $B$ and $C$ defined as follows;
+
+```{r echo=FALSE, warning=FALSE}
+library(knitr)
+pointstable = data.frame( 
+              Event = c("100m", "Long Jump", "Shotput","High Jump", "400m","Hurdles","Discus","Pole Vault", "Javelin", "1500"),
+              A=c(25.4347,0.14354,51.39,0.8465,1.53775,
+                  5.74352,12.91,0.2797,10.14,0.03768),
+              B=c(18,220,1.5,75,82,28.5,4,100,7,480),
+              C=c(1.81,1.4,1.05,1.42,1.81,1.92,1.1,1.35,1.08,1.85))
+kable(pointstable)
+```
+
+
+## Getting The Data
+
+The results for all competitions of a sufficient standard is hosted on the [power of 10](https://www.thepowerof10.info/) website. I will scrape this data using rvest.
+
+We use the following packages:
+```{r Import Modules, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(rvest)
+library(lubridate)
+library(MASS)
+library(GGally)
+```
+
+And then we collect the data using the following functions;
+```{r Define Functions, message=FALSE, warning=FALSE, cache=TRUE}
+#This simplifies the get_decathletes function
+get_name = function(athletelink){
+  name =  read_html(athletelink) |>
+    html_elements("body") |> 
+    html_elements("table")
+  name =  name[[6]] |> 
+    html_table() |> 
+    as.data.frame()
+  return(name[1,1])
+}
+
+#Get a data frame of decathletes from a rankings page
+get_decathletes = function(rankingslink){
+  
+  decyear = read_html(rankingslink) |> 
+    html_element(xpath='//*[@id="cphBody_lblCachedRankingList"]/table') |> 
+    html_table() |> 
+    filter(is.na(as.numeric(X1))==FALSE) |> 
+    dplyr::select(c("X2","X7","X11")) |> 
+    rename("Points"="X2","Name"="X7","Club"="X11") |> 
+    mutate(Firstname=word(Name,1)) |> 
+    mutate(Surname=word(Name,-1))
+  
+  links = read_html(rankingslink) |> 
+    html_elements("a") |> 
+    html_attr("href")
+  
+  links = data.frame(Links=links) |> 
+    filter(substr(Links,0,33) == "/athletes/profile.aspx?athleteid=") |> 
+    mutate(Links = paste0("https://www.thepowerof10.info",Links))
+  
+  for (i in 1:nrow(links)){
+    try({
+      name = get_name(links$Links[i])
+      links$Firstname[i] = word(name,1)
+      links$Surname[i] = word(name,-1)
+    })
+  }
+  
+  decyear = left_join(decyear,links,by=c("Firstname","Surname"))
+  return(decyear)
+}
+
+#Given an athlete, get the points from their personal bests
+get_points_pbs = function(athletelink){
+  pbs = read_html(athletelink) |> 
+    html_element(xpath='//*[@id="cphBody_pnlBestPerformances"]/table[2]') |> 
+    html_table() |> 
+    as.data.frame() |> 
+    filter( X1 %in% c("100","LJ","SP7.26K","HJ","400",
+                      "110H","DT2K","PV","JT800","1500") ==TRUE) |> 
+    dplyr::select(c(X1,X2))
+  
+  for (i in 1:nrow(pbs)){
+    pbs$X2[i] = strsplit(pbs$X2[i],"/")[[1]][1]
+    if (substr(pbs$X2[i],nchar(pbs$X2[i]),nchar(pbs$X2[i])) %in% c("i","w") == TRUE){
+      pbs$X2[i] = substr(pbs$X2[i],0,nchar(pbs$X2[i])-1)
+    }
+    if (pbs$X1[i] == "1500"){
+      pbs$X2[i] = period_to_seconds(ms(pbs$X2[i]))
+    }
+    if (pbs$X1[i] == "400" & is.na(as.numeric(pbs$X2[i]))==TRUE){
+      pbs$X2[i] = period_to_seconds(ms(pbs$X2[i]))
+    }
+    if (pbs$X1[i] %in% c("LJ","HJ","PV") == TRUE){
+      pbs$X2[i] = 100*as.numeric(pbs$X2[i])
+    }
+  }
+  
+  calcdf =  data.frame(
+    Event=c("100","LJ","SP7.26K","HJ","400",
+            "110H","DT2K","PV","JT800","1500"),
+    A=c(25.4347,0.14354,51.39,0.8465,1.53775,
+        5.74352,12.91,0.2797,10.14,0.03768),
+    B=c(18,220,1.5,75,82,28.5,4,100,7,480),
+    C=c(1.81,1.4,1.05,1.42,1.81,1.92,1.1,1.35,1.08,1.85))
+  
+  pbs = pbs |> left_join(calcdf, by=c("X1" = "Event")) |> 
+    mutate(X2 = as.numeric(X2)) |> 
+    mutate(points = as.integer(A*abs(B-X2)^C))
+  
+  return(pbs)
+}
+
+#Gets an athletes performances from their best decathlon in a given year
+get_decathlon_perf = function(athletelink, year){
+  
+  dec = read_html(athletelink) |> 
+    html_element(xpath = '//*[@id="cphBody_pnlPerformances"]/table[2]') |> 
+    html_table()
+  
+  dec = dec |> mutate( X12 = dmy(X12)) |> na.omit() |> filter(year(X12) == year)
+  
+  maxpoints = dec$X2[which(dec$X1 == "Dec" & !is.na(as.numeric(dec$X2)))] |> strtoi() |> max()
+  maxpoints = which(dec$X2 == maxpoints)[1]
+  comp_name = dec$X11[maxpoints]
+  comp_location = dec$X10[maxpoints]
+  
+  dec = dec |> filter(X10 == comp_location & X11 == comp_name & X1 != "Dec") |> dplyr::select(X1,X2)
+  
+  for (i in 1:nrow(dec)){
+    if (dec$X1[i] == "1500"){
+      dec$X2[i] = period_to_seconds(ms(dec$X2[i]))
+    }
+    if (dec$X1[i] == "400" & is.na(as.numeric(dec$X2[i]))==TRUE){
+      dec$X2[i] = period_to_seconds(ms(dec$X2[i]))
+    }
+    if (dec$X1[i] %in% c("LJ","HJ","PV") == TRUE){
+      dec$X2[i] = 100*as.numeric(dec$X2[i])
+    }
+  }
+  
+  
+  if (nrow(dec)<10){
+    allevents = c("100","LJ","SP7.26K","HJ","400","110H",
+                  "DT2K","PV","JT800","1500")
+    Missing = all_events[-which(dec$X1 %in% allevents)]
+    for( i in Missing){
+      dec[nrow(dec)+1,] = list(i,NA)
+    }
+  }
+  calcdf =  data.frame(
+    Event=c("100","LJ","SP7.26K","HJ","400","110H",
+            "DT2K","PV","JT800","1500"),
+    A=c(25.4347,0.14354,51.39,0.8465,1.53775,
+        5.74352,12.91,0.2797,10.14,0.03768),
+    B=c(18,220,1.5,75,82,28.5,4,100,7,480),
+    C=c(1.81,1.4,1.05,1.42,1.81,1.92,1.1,1.35,1.08,1.85))
+  
+  dec = dec |> left_join(calcdf, by=c("X1" = "Event")) |> 
+    mutate(X2 = as.numeric(X2)) |> 
+    mutate(points = as.integer(A*abs(B-X2)^C)) |> 
+    arrange(X1)
+  
+  
+  while (nrow(dec)>10){
+    dupe = which(dec$X1 == dec$X1[anyDuplicated(dec$X1)])
+    if (dec$X1[dupe] %in% c("HJ","LJ","PV","SP7.26K","DT2K","JT800")){
+      remove = which(dec$X2 == min(dec$X2[dupe]))[1]
+      dec=dec[-remove,]
+    }
+    if (dec$X1[dupe] %in% c("100","400","1500","110H")){
+      remove = which(dec$X2 == max(dec$X2[dupe]))
+      dec=dec[-remove,]
+    }
+  }
+  
+  return(dec)
+}
+
+```
+There is a lot going on here which probably needs a bit more explanation, but this is secondary to the actual analysis. See the [rvest](https://rvest.tidyverse.org/) documentation for more info.
+
+## What have we seen in 2022?
+
+### Distribution of Decathletes
+
+Lets start with the data;
+```{r Collect Data, message=FALSE, warning=FALSE, cache=TRUE}
+Decathletes_2022 = get_decathletes("https://www.thepowerof10.info/rankings/rankinglist.aspx?event=Dec&agegroup=ALL&sex=M&year=2022")
+
+head(Decathletes_2022)
+```
+
+We have 50 Decathletes who have competed in 2022. Looking at the Clubs we see that the top two performances are by athletes from Tonbridge. So an immediate question we might ask is which clubs are producing the most decathletes?
+```{r Number of Clubs, cache=TRUE}
+length(unique(Decathletes_2022$Club))
+```
+Given that we have 37 clubs and 50 athletes this is not very informative. Instead we might lower our resolution and ask what regions are producing the most decathletes?
+
+For this question we will need a bit more data, luckily [power of 10](https://www.thepowerof10.info/clubs/) has information on clubs! The following is a very ugly function but it returns a dataframe with the club's name, County, Region, Territory and Nation.
+
+```{r Club Info Function, cache=TRUE}
+get_club_info = function(clubname){
+
+clubsession = session("https://www.thepowerof10.info/clubs/")
+setform = html_form(clubsession)[[1]] |> 
+          html_form_set("ctl00$cphBody$txtClub"=clubname)
+response = session_submit(clubsession,setform)
+newurl = response$url
+if (newurl == "https://www.thepowerof10.info/clubs/"){
+clubname =  response |> 
+            read_html() |> 
+            html_element(xpath='//*[@id="cphBody_pnlForm"]/table[2]') |> 
+            html_table()
+if ( grepl("could be one of",as.character(clubname))){
+  clubname = regmatches(clubname, gregexpr("[[:digit:]]+", clubname))$X1[2]
+  setform = html_form(clubsession)[[1]] |> 
+            html_form_set("ctl00$cphBody$txtClub"=as.character(clubname))
+  response = session_submit(clubsession,setform)
+}
+if (grepl("Could not find", as.character(clubname))){
+  clubname = NA
+  return(clubname)
+}
+}
+
+clubinfo =  response |> 
+            html_element(xpath='//*[@id="cphBody_lblNames"]') |>
+            html_table() |> 
+            filter(X1 != "") |> 
+            pivot_wider(names_from="X1",values_from="X2")
+
+return(clubinfo)
+}
+```
+So we can now proceed, lets expand the Decathletes_2022 data to include the club's county and region.
+```{r Add club Info, message=FALSE, warning=FALSE, cache=TRUE}
+for (i in 1:nrow(Decathletes_2022)){
+  clubinfo = get_club_info(Decathletes_2022$Club[i])
+  Decathletes_2022$County[i] = as.character(clubinfo$County)
+  Decathletes_2022$Region[i] = as.character(clubinfo$Region)
+}
+head(Decathletes_2022)
+```
+So is one region performing better than the others?
+```{r Check Regions, cache=TRUE}
+par(mfrow=c(1,1))
+par(las=2)
+Regions = table(Decathletes_2022$Region)
+barplot(Regions)
+chisq.test(Regions)$p.value
+```
+And we can see that the South East is miles ahead in terms of producing decathletes. From the chi squared test, we can see that this is statistically significant. However it's also true that the South East has the greatest population, so we would expect this result. Lets scale these values according to their [population](https://en.wikipedia.org/wiki/Regions_of_England#List_of_regions).
+```{r Adjust Regions, cache=TRUE, warning=FALSE}
+#In millions
+Populations = c(6.2,4.8,9,7.3,5.5,9.2,5.6,3.1,5.9,5.5)
+adj_Regions = Regions/Populations
+par(las=2)
+barplot(adj_Regions)
+chisq.test(adj_Regions)
+```
+Where still the South East is leading the pack, however the p-value indicates that this does not imply an unequal distribution of athletes. It's likely that this is due to a small number of clubs, let's check;
+```{r Clubs in South East, cache=TRUE}
+par(las=2)
+Decathletes_2022 |>  filter(Region=="South East") |> 
+                      dplyr::select(Club) |> 
+                      table() |> 
+                      barplot()
+```
+
+So Basingstoke & Mid Hants is the club to join for decathlon! We can see from [Power of 10](https://www.thepowerof10.info/rankings/rankinglist.aspx?event=Dec&agegroup=ALL&sex=M&year=2022) that these athletes (as well as a few others) are all coached by [Rafar Joseph](https://www.thepowerof10.info/athletes/profile.aspx?athleteid=26806). A more important question might perhaps be, which area produces the best decathletes? For this lets create a 2 dimensional table;
+```{r Grouped Data}
+Decathletes_2022$Groups = as.numeric(Decathletes_2022$Points) |> 
+                          cut(breaks=c(3000,6500,8000),
+                              labels=c("Low","High"))
+Grouped_Dec = table(Decathletes_2022$Groups, Decathletes_2022$Region)
+Grouped_Dec
+```
+
+Unfortunately we really don't have enough data to test among every region, so instead lets combine categories and just check between north and south.
+
+```{r North vs South}
+South = Grouped_Dec[,1]+Grouped_Dec[,2]+Grouped_Dec[,3]+
+        Grouped_Dec[,6]+Grouped_Dec[,7]+Grouped_Dec[,8]+Grouped_Dec[,9]
+North = Grouped_Dec[,4]+Grouped_Dec[,5]+Grouped_Dec[,10]
+
+Areas = cbind("North" = North, "South" =South)
+dimnames(Areas) = list("Group"=c("Low","High"),"Region"=c("North","South"))
+AdjAreas = Areas/c(sum(Populations[c(4,5,10)]),sum(Populations[c(4,5,10)]),
+        sum(Populations[c(1,2,3,6,7,8,9)]),sum(Populations[c(1,2,3,6,7,8,9)]))
+
+#Odds ratio
+Areas[1]*Areas[4]/(Areas[2]*Areas[3])
+```
+
+So we see from the odds ratio calculation that the odds of being in the  higher performance bracket are greater if you are southern than northern. Lets fit a log linear model to test this hypothesis;
+```{r Log Linear}
+step(loglm(~Region*Group,data=Areas),direction="backward", test="Chisq")
+```
+
+Here we see that AIC favours the independence model, which indicates that there isn't a significant correlation between what side of the country you are on and whether you're a good decathlete.
+
+## Points Distribution
+
+Another big question in decathlon is what events are the most important? Generally speaking, we can split the events in the decathlon into 4 categories; 3 sprints, 3 throws, 3 jumps and 1 endurance. Lets have a look at the points from 2022;
+
+```{r Points Graphs, cache=TRUE}
+par(mfrow=c(1,2))
+boxplot(as.numeric(Decathletes_2022$Points), ylab="Points")
+qqnorm(as.numeric(Decathletes_2022$Points))
+qqline(as.numeric(Decathletes_2022$Points),col="blue")
+```
+
+We can see from the qq plot that we don't have perfect normality, but that is to be expected from the small sample size and high variance of points. 
+
+We generally assume that an athletes tend to perform better in a certain group of events, for example an athlete may excel in the throws but fall behind in the 1500.
+```{r Get Points Data, warning=FALSE}
+Performances = data.frame("m100" = numeric(),"m110H"=numeric(),
+                          "m1500" = numeric(), "m400" = numeric(),
+                          "DT2K" = numeric(), "HJ" = numeric(), 
+                          "JT800" = numeric(), "LJ" = numeric(), 
+                          "PV" = numeric(), "SP7.26K"=numeric())
+                          
+for(i in 1:nrow(Decathletes_2022)){
+  Performances[i,] = get_decathlon_perf(Decathletes_2022$Links[i],2022)$points
+}
+ggpairs(Performances)
+```
+
+So we can see that, for example, discus and shot-put correlate very strongly (r=0.91) as do high and long jump (r=0.89) and hurdles and 400m (r=0.91). On the other hand, exactly as we would expect, we see that throws performance has a much weaker correlation with 1500m performances (r=0.44 with discus and 0.43 with shot-put). 
+
+Another interesting metric is the ratio of points. The issue with looking at raw points is that a good athlete tends to be better across the board, which nudges r values in the positive direction. By looking at the ratio of points achieved relative to total points, we can more accurately see if groups of events are correlated. 
+```{r  Ratio of Performances, warning=FALSE}
+PerformanceRatio = Performances
+for (i in 1:nrow(PerformanceRatio)){
+  PerformanceRatio[i,]=PerformanceRatio[i,]/sum(PerformanceRatio[i,])
+}
+ggpairs(PerformanceRatio)
+```
+
+We can see still that we have strong correlation between shotput and discus but the groups of jumps and sprints aren't so clear. For example, we have strong positive correlation between hurdles and pole vault (r=0.61) but negative correlation between pole vault and high jump (r=-0.40). One explanation for this is that we see stronger correlation between how technical events are, since there is generally more room for improvement in more technical events. Another is bias in scoring which means that certain events can yield more points than others.
+
+This brings us onto another question, which events does the score the highest?
+
+```{r Top scoring}
+Averages= colMeans(PerformanceRatio, na.rm=TRUE) |> data.frame() |> setNames(c("Points"))
+Averages$Event = rownames(Averages)
+ggplot(Averages, aes(x=Event, y=Points))+ggtitle("Overall Average Scores")+geom_col()
+
+AveragesLow= colMeans(PerformanceRatio[nrow(PerformanceRatio-20):nrow(PerformanceRatio),], na.rm=TRUE) |> data.frame() |> setNames(c("Points"))
+AveragesHigh= colMeans(PerformanceRatio[1:20,], na.rm=TRUE) |> data.frame() |> setNames(c("Points"))
+lowvhigh = cbind(AveragesLow,AveragesHigh) |> setNames(c("Low","High"))
+lowvhigh$Event=rownames(Averages)
+lowvhigh = lowvhigh |> 
+          pivot_longer(cols=c(1,2),names_to = "Group", values_to = "Points")
+ggplot(lowvhigh, aes(fill=Group, y=Points, x=Event))+
+  geom_bar(position="dodge",stat="identity")
+
+```
+
+The first graph shows the average distribution for the ratio of points in the group. The second shows the difference in the ratios for the top 20 athletes, against the bottom 20. 
+From the first graph we can see that 100m, long jump and 400 stand out as the highest performing events whereas javelin and pole vault fall behind as the lowest scoring. We could infer that most decathletes tend to be quick athletes (or at least the scoring system favours quick athletes).
+The second graph is more interesting, it shows how well athletes perform at their events, relative to their ability. We see that higher scoring athletes are relatively better at the technically challenging events, such as pole vault, hurdles and javelin. We also see higher scoring athletes have a much more even spread of points although they get very few of their points from the throws (about 26%). 
+
