@@ -1,0 +1,499 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+<style>
+body{
+background-color: #2F3E46;
+font-family: Verdana, sans-serif;
+align-items: center;
+flex-direction:column;
+text-align:center;
+}
+.container {
+  width:100%;
+  display: flex;
+  flex-wrap: wrap;
+  text-align:center;
+}
+
+.left {
+  flex: 50%;
+  justify-content: center;
+  align-items: center;
+  flex-direction:column;
+}
+
+.right {
+  flex: 50%;
+  justify-content: center;
+  align-items: center;
+  flex-direction:column;
+}
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+  color:#606060;
+}
+input[type=number]{
+    background-color:#4F5E66;
+    padding:5px;
+    margin:5px;
+    border:2px solid #000000;
+    box-shadow:0 0px 5px 0 rgba(10,10,10,0.5);
+    border-radius:4px;
+    width:30%;
+}
+input:focus{
+    outline:none;
+}
+input:hover{
+    background-color:#808080
+}
+label{
+width:120px;
+display:inline-flex;
+font-weight:bold;
+color:#909090
+}
+label:after {
+    content: ": "
+}
+h1,h2,h3{
+    color:#A0A0A0;
+    display:inline-flex;
+    float:center;
+}
+output{
+    width: 100px;
+    height: 10px;
+    display:inline-flex;
+    color: #909090
+}
+.long{
+    background-color:#4F5E66;
+    padding:5px;
+    margin:5px;
+    border:2px solid #000000;
+    box-shadow:0 0px 5px 0 rgba(10,10,10,0.5);
+    border-radius:4px;
+    width:30%;
+}
+img{
+    width:10%;
+    aspect-ratio: 1/1;
+    display:inline-flex;
+    cursor: grab;
+    float: center
+}
+
+</style>
+</head>
+<body>
+<h1>Decathlon Points Calculator</h1>
+<div class="container">
+<div class="left">
+    <h1 style="text-align:center;">Day 1</h1>
+    <div>
+        <label for="event1">100m</label>
+        <input type="number" id="event1"/>
+        <output id="event1R"></output>
+    </div>
+    <div>
+        <label for="event2">Long Jump</label>
+        <input type="number" id="event2"/>
+        <output id="event2R"></output>
+    </div>
+    <div>
+        <label for="event3">Shot Put</label>
+        <input type="number" id="event3"/>
+        <output id="event3R"></output>
+    </div>
+    <div>
+        <label for="event4">High Jump</label>
+        <input type="number" id="event4"/>
+        <output id="event4R"></output>
+    </div>
+    <div>
+        <label for="event5">400m</label>
+        <input type="number" id="event5"/>
+        <output id="event5R"></output>
+    </div>
+</div>
+<div class="right">
+    <h1 style="text-align:center;">Day 2</h1>
+    <div>
+        <label for="event6">110h</label>
+        <input type="number" id="event6"/>
+        <output id="event6R"></output>
+    </div>
+    <div>
+        <label for="event7">Discus</label>
+        <input type="number" id="event7"/>
+        <output id="event7R"></output>
+    </div>
+    <div>
+        <label for="event8">Pole Vault</label>
+        <input type="number" id="event8"/>
+        <output id="event8R"></output>
+    </div>
+    <div>
+        <label for="event9">Javelin</label>
+        <input type="number" id="event9"/>
+        <output id="event9R"></output>
+    </div>
+    <div>
+        <label for="event10">1500m</label>
+        <input type="number" id="event10" placeholder="Enter time in seconds"/>
+        <output id="event10R"></output>
+    </div>
+</div>
+</div>
+<div class="container">
+<div class="left">
+    <div>
+        <h3 id="Day1Points">Day 1 Total: </h3>
+    </div>
+</div>
+<div class="right">
+    <div>
+        <h3 id="Day2Points">Day 2 Total:</h3>
+    </div>
+</div>
+</div>
+<h3 id="total_points">Total Points: </h3>
+<br>
+
+<canvas id="points_bar" width="600" height="400" style="display:inline-block;vertical-align:center"></canvas>
+<canvas id="points_doughnut" width="600" height="400" style="display:inline-block;vertical-align:center"></canvas>
+
+<br>
+<br>
+<h1>Decathlon Performance Calculator</h1>
+<br>
+<label for="pointsI">Input Points</label>
+<input type="number" id="pointsI">
+
+<div class="container">
+<div class="left">
+    <h2>Day One</h2>
+    <div>
+        <label for="Points1">100m</label>
+        <output id="Points1"></output>
+    </div>
+    <div>
+        <label for="Points2">Long Jump</label>
+        <output id="Points2"></output>
+    </div>
+    <div>
+        <label for="Points3">Shot Put</label>
+        <output id="Points3"></output>
+    </div>
+    <div>
+        <label for="Points4">High Jump</label>
+        <output id="Points4"></output>
+    </div>
+    <div>
+        <label for="Points5">400m</label>
+        <output id="Points5"></output>
+    </div>
+</div>
+<div class="right">
+    <h2>Day Two</h2>
+    <div>
+        <label for="Points6">100H</label>
+        <output id="Points6"></output>
+    </div>
+    <div>
+        <label for="Points7">Discus</label>
+        <output id="Points7"></output>
+    </div>
+    <div>
+        <label for="Points8">Pole Vault</label>
+        <output id="Points8"></output>
+    </div>
+    <div>
+        <label for="Points9">Javelin</label>
+        <output id="Points9"></output>
+    </div>
+    <div>
+        <label for="Points10">1500m</label>
+        <output id="Points10"></output>
+    </div>
+</div>
+</div>
+
+<h1>Decathlete Profile </h1>
+<p>This tool takes input points and then calculates the distribution of points based on each athlete's personal best.</p>
+<p>Simply input your points then click the decathlete whose distribution you want to use.</p>
+<img src="https://i.imgur.com/R3h5Iu2.jpg" id="Kevin"/>
+<img src="https://i.imgur.com/bn9kRYi.jpg" id="Ashton"/>
+<img src="https://i.imgur.com/AM7N8CF.jpg" id="Damian">
+<br><br>
+<label for="DpointsI">Input Points</label>
+<input type="number" id="DpointsI">
+<div class="container">
+<div class="left">
+    <h2>Day One</h2>
+    <div>
+        <label for="DPoints1">100m</label>
+        <output id="DPoints1"></output>
+    </div>
+    <div>
+        <label for="DPoints2">Long Jump</label>
+        <output id="DPoints2"></output>
+    </div>
+    <div>
+        <label for="DPoints3">Shot Put</label>
+        <output id="DPoints3"></output>
+    </div>
+    <div>
+        <label for="DPoints4">High Jump</label>
+        <output id="DPoints4"></output>
+    </div>
+    <div>
+        <label for="DPoints5">400m</label>
+        <output id="DPoints5"></output>
+    </div>
+</div>
+<div class="right">
+    <h2>Day Two</h2>
+    <div>
+        <label for="DPoints6">100H</label>
+        <output id="DPoints6"></output>
+    </div>
+    <div>
+        <label for="DPoints7">Discus</label>
+        <output id="DPoints7"></output>
+    </div>
+    <div>
+        <label for="DPoints8">Pole Vault</label>
+        <output id="DPoints8"></output>
+    </div>
+    <div>
+        <label for="DPoints9">Javelin</label>
+        <output id="DPoints9"></output>
+    </div>
+    <div>
+        <label for="DPoints10">1500m</label>
+        <output id="DPoints10"></output>
+    </div>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="path/to/chartjs/dist/chart.min.js"></script>
+<script src="path/to/chartjs-plugin-annotation/dist/chartjs-plugin-annotation.min.js"></script>
+<script>
+//Create charts using chartjs
+
+const ctx1 = document.getElementById("points_bar").getContext("2d");
+const points_bar = new Chart(ctx1,{
+    type: "bar",
+    data:{
+        labels: ["100m","Long","Shot","High","400m","110h","Discus","Vault","Javelin","1500m"],
+        datasets:[{
+            label:"Points",
+            labelColor:"rgb(100,100,100)",
+            backgroundColor:[
+                "#B33030",
+                "#0AA1DD",
+                "#36AE7C",
+                "#0AA1DD",
+                "#B33030",
+                "#B33030",
+                "#36AE7C",
+                "#0AA1DD",
+                "#36AE7C",
+                "#EC9B3B"]
+            }]
+        },
+        options: {
+            responsive: false,
+            plugins:{
+                title:{
+                    display: true,
+                    text: "Points Distribution",
+                    color: "rgb(144,144,144)"
+                    },
+                legend:{
+                    display: false
+                    },
+                annotation:{
+                    annotations:[{
+                        type:"line",
+                        mode:"horizontal",
+                        value:100
+                    }]
+                }
+            },
+            scales: {
+                y: {
+                    ticks: { color:"rgb(144,144,144)", beginAtZero: true}
+                },
+                x:{
+                    ticks: { color:"rgb(144,144,144)", beginAtZero: true}
+                }
+            }
+        }
+});
+
+const ctx2 = document.getElementById("points_doughnut");
+var points_doughnut = new Chart(ctx2,{
+    type:"doughnut",
+    data:{
+        labels: ["Sprints","Jumps","Throws","1500"],
+        labelColor:"rgb(144,144,144)",
+        datasets:[{
+            label:"Points",
+            data:"[1,1,1,1]",
+            labelColor:"rgb(144,144,144)",
+            borderColor:"transparent",
+            backgroundColor:[
+                "#B33030",
+                "#0AA1DD",
+                "#36AE7C",
+                "#EC9B3B"]
+            }]
+        },
+        options:{
+            responsive:false,
+            cutout: "25%",
+            plugins:{
+                legend:{
+                    pointStyle:"circle",
+                    labels:{
+                        color:"rgb(144,144,144)"
+                        }
+                    }
+                }
+            }
+})
+
+
+//Calculate Points and put them in an array
+    function calculate_points(){
+        var combined_points = []
+        const A = [25.4347,90.5486,51.3,585.63492,1.53775,5.74352,12.91,139.9315,10.14,0.03768]
+        const B = [18.0,2.2,1.5,0.75,82.0,28.5,4.0,1.0,7.0,480.0]
+        const C = [1.81,1.4,1.05,1.42,1.81,1.92,1.1,1.35,1.08,1.85]
+        for (let i =1; i<11; i++){
+            const eventI = "event"+JSON.stringify(i);
+            if (document.getElementById(eventI).value != 0){
+                var points = Math.round(A[i-1]*Math.abs(document.getElementById(eventI).value-B[i-1])**C[i-1]);
+            } else {
+                var points = 0;
+            }
+            combined_points.push(points)
+            }
+            return combined_points
+        }
+//Then Display Points & Total
+    function display_points(){
+        var combined_points = calculate_points();
+        var pie_points = [combined_points[0]+combined_points[4]+combined_points[5],combined_points[1]+combined_points[3]+combined_points[7],combined_points[2]+combined_points[6]+combined_points[8],combined_points[9]]
+        var total_points = combined_points.reduce((x, y) => x + y);
+        var day_1_total = combined_points.slice(0,4).reduce((x, y) => x + y);
+        var day_2_total = combined_points.slice(5,9).reduce((x, y) => x + y);
+        document.getElementById("total_points").innerHTML="Total Points: " + total_points;
+        for (let i =1; i<11; i++){
+            const eventR = "event"+JSON.stringify(i)+"R";
+            document.getElementById(eventR).value = combined_points[i-1];
+            }
+        document.getElementById("Day1Points").innerHTML="Day 1 Total: " + day_1_total
+        document.getElementById("Day2Points").innerHTML="Day 2 Total: " + day_2_total
+        points_bar.data.datasets[0].data=combined_points
+        points_doughnut.data.datasets[0].data=pie_points
+        points_bar.update()
+        points_doughnut.update()
+        }
+
+//Then make the website update for every change in input
+    for (let i=1; i<11; i++){
+        const eventI = "event"+JSON.stringify(i);
+        document.getElementById(eventI).addEventListener("change",display_points);
+    }
+
+//First we create a vector of performances by points
+function get_performances(){
+    const points = document.getElementById("pointsI").value;
+    var combined_performance = [];
+    const A = [25.4347,90.5486,51.3,585.63492,1.53775,5.74352,12.91,139.9315,10.14,0.03768];
+    const B = [18.0,2.2,1.5,0.75,82.0,28.5,4.0,1.0,7.0,480.0];
+    const C = [1.81,1.4,1.05,1.42,1.81,1.92,1.1,1.35,1.08,1.85];
+    for (let i=1; i<11; i++){
+        if(i==1 || i==5 || i==6 || i==10){
+            var performance = Math.abs((points/A[i-1])**(1/C[i-1]) - B[i-1]);
+        } else{
+            var performance = (points/A[i-1])**(1/C[i-1]) + B[i-1];
+        }
+        combined_performance.push(performance.toFixed(2));
+    }
+    return combined_performance
+}
+
+//And Output then to the page
+function show_performances(){
+    const performances = get_performances();
+    for (let i=1; i<11; i++){
+        const PointsI = "Points"+JSON.stringify(i);
+        document.getElementById(PointsI).value = performances[i-1];
+    }
+}
+
+//And Show the performances when the input box is changed
+document.getElementById("pointsI").addEventListener("change",show_performances)
+
+var athlete_distribution = [["Kevin", [963,1010,851,850,889,1007,882,1051,918,705]],
+                            ["Ashton", [1040,1030,760,813,1060,1015,733,972,793,829]],
+                            ["Damian", [1066,1123,777,822,934,1045,843,880,790,738]]]
+
+//Display Athlete Profile
+function athlete_profile_kevin(){
+    var distribution = athlete_distribution[0][1]
+    const total = distribution.reduce((x, y) => x + y);
+    if (document.getElementById("DpointsI").value==0){
+        document.getElementById("DpointsI").value = total
+    }
+    var total_points = document.getElementById("DpointsI").value;
+    var ratio_points = distribution.map(function(x) {return x/total});
+    var athlete_points = ratio_points.map(function(x) {return Math.round(x*total_points)});
+    for (let i=1; i<11; i++){
+        const athlete_pointsI = "DPoints"+JSON.stringify(i);
+        document.getElementById(athlete_pointsI).value = athlete_points[i-1];
+    }
+}
+function athlete_profile_ashton(){
+    var distribution = athlete_distribution[1][1]
+    const total = distribution.reduce((x, y) => x + y);
+    if (document.getElementById("DpointsI").value==0){
+        document.getElementById("DpointsI").value = total
+    }
+    var total_points = document.getElementById("DpointsI").value;
+    var ratio_points = distribution.map(function(x) {return x/total});
+    var athlete_points = ratio_points.map(function(x) {return Math.round(x*total_points)});
+    for (let i=1; i<11; i++){
+        const athlete_pointsI = "DPoints"+JSON.stringify(i);
+        document.getElementById(athlete_pointsI).value = athlete_points[i-1];
+    }
+}
+function athlete_profile_damian(){
+    var distribution = athlete_distribution[2][1]
+    const total = distribution.reduce((x, y) => x + y);
+    if (document.getElementById("DpointsI").value==0){
+        document.getElementById("DpointsI").value = total
+    }
+    var total_points = document.getElementById("DpointsI").value;
+    var ratio_points = distribution.map(function(x) {return x/total});
+    var athlete_points = ratio_points.map(function(x) {return Math.round(x*total_points)});
+    for (let i=1; i<11; i++){
+        const athlete_pointsI = "DPoints"+JSON.stringify(i);
+        document.getElementById(athlete_pointsI).value = athlete_points[i-1];
+    }
+}
+//And add an event listener to each picture
+document.getElementById("Kevin").addEventListener("click",athlete_profile_kevin)
+document.getElementById("Ashton").addEventListener("click",athlete_profile_ashton)
+document.getElementById("Damian").addEventListener("click",athlete_profile_damian)
+</script>
+</body>
+</html>
